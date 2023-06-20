@@ -119,6 +119,11 @@ trait EguiAppState<T: Platform> {
     ///
     /// Returns an error (in which case that becomes the new state), or a boolean indicating whether to refresh.
     fn add_runtime_grid(&self, platform: &T, ui: &mut egui::Ui) -> Result<bool, Error>;
+
+    /// Adds a grid with the api-layers to the given `egui::Ui`, handling toggling the layers on / off and reordering.
+    ///
+    /// Returns an error (in which case that becomes the new state), or a boolean indicating whether to refresh.
+    fn add_api_layer_grid(&self, platform: &T, ui: &mut egui::Ui) -> Result<bool, Error>;
 }
 
 impl<T: Platform> EguiAppState<T> for AppState<T> {
@@ -169,6 +174,48 @@ impl<T: Platform> EguiAppState<T> for AppState<T> {
                             }
                             ui.label(runtime.get_runtime_name());
                             ui.label(format!("{}", runtime_active_state));
+                            ui.label(runtime.describe());
+                            ui.end_row();
+                        }
+                        Ok(repopulate)
+                    })
+                    .inner
+            })
+            .inner
+    }
+
+    fn add_api_layer_grid(&self, platform: &T, ui: &mut egui::Ui) -> Result<bool, Error> {
+        // The closure this calls returns true if we should refresh the list
+        egui::containers::ScrollArea::horizontal()
+            .show(ui, |ui| {
+                egui::Grid::new("api layers")
+                    .striped(true)
+                    .min_col_width(ui.spacing().interact_size.x * 2.0) // widen to avoid resizing based on default runtime
+                    .min_row_height(ui.spacing().interact_size.y * 2.5)
+                    .num_columns(3)
+                    .show(ui, |ui| -> Result<bool, Error> {
+                        let mut repopulate = false;
+                        ui.label("Enabled");
+                        ui.label(
+                            egui::RichText::new("Api Layer Name").size(TABLE_HEADER_TEXT_SIZE),
+                        );
+                        ui.label(egui::RichText::new("Details").size(TABLE_HEADER_TEXT_SIZE));
+                        ui.end_row();
+
+                        for runtime in &self.runtimes {
+                            let runtime_active_state =
+                                platform.get_runtime_active_state(runtime, &self.active_data);
+                            let mut active = false;
+                            let check = ui.checkbox(&mut active, "");
+
+                            if check.changed() {
+                                if let Err(e) = runtime.make_active() {
+                                    eprintln!("error in make_active: {:?}", e);
+                                    return Err(e);
+                                }
+                                repopulate = true;
+                            }
+                            ui.label(runtime.get_runtime_name());
                             ui.label(runtime.describe());
                             ui.end_row();
                         }
@@ -295,6 +342,9 @@ impl<T: Platform> GuiView<T> for AppState<T> {
 
         // Central panel must come last
         let should_refresh = header_action.should_refresh(&new_extra_paths)
+            || egui::SidePanel::right("Api Layer Panel")
+                .show(ctx, |ui| self.add_api_layer_grid(platform, ui))
+                .inner?
             || egui::CentralPanel::default()
                 .show(ctx, |ui| self.add_runtime_grid(platform, ui))
                 .inner?; // get at the nested closure's return value (whether to repopulate), after handling errors.
@@ -376,10 +426,7 @@ impl<T: Platform> eframe::App for PickerApp<T> {
 fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
         icon_data: load_icon(ICON_48),
-        min_window_size: Some(Vec2 {
-            x: 800.0,
-            y: 256.0,
-        }),
+        min_window_size: Some(Vec2 { x: 800.0, y: 256.0 }),
         ..Default::default()
     };
     eframe::run_native(
