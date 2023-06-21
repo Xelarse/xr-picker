@@ -420,7 +420,7 @@ impl Platform for WindowsPlatform {
         Ok((collection.into(), nonfatal_errors))
     }
 
-    type PlatformActiveData = WindowsActiveRuntimeData;
+    type PlatformActiveRuntimeData = WindowsActiveRuntimeData;
 
     fn get_active_runtime_manifests(&self) -> Vec<PathBuf> {
         let data = WindowsActiveRuntimeData::new();
@@ -431,14 +431,14 @@ impl Platform for WindowsPlatform {
             .collect()
     }
 
-    fn get_active_data(&self) -> Self::PlatformActiveData {
+    fn get_active_runtime_data(&self) -> Self::PlatformActiveRuntimeData {
         WindowsActiveRuntimeData::new()
     }
 
     fn get_runtime_active_state(
         &self,
         runtime: &Self::PlatformRuntimeType,
-        active_data: &Self::PlatformActiveData,
+        active_data: &Self::PlatformActiveRuntimeData,
     ) -> ActiveState {
         active_data.check_runtime(runtime)
     }

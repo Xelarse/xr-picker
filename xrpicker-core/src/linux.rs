@@ -199,7 +199,7 @@ fn possible_active_runtimes() -> impl Iterator<Item = PathBuf> {
 
 impl Platform for LinuxPlatform {
     type PlatformRuntimeType = LinuxRuntime;
-    type PlatformActiveData = LinuxActiveRuntimeData;
+    type PlatformActiveRuntimeData = LinuxActiveRuntimeData;
 
     fn find_available_runtimes(
         &self,
@@ -249,14 +249,14 @@ impl Platform for LinuxPlatform {
         LinuxActiveRuntimeData::new().0.into_iter().collect()
     }
 
-    fn get_active_data(&self) -> Self::PlatformActiveData {
+    fn get_active_runtime_data(&self) -> Self::PlatformActiveRuntimeData {
         LinuxActiveRuntimeData::new()
     }
 
     fn get_runtime_active_state(
         &self,
         runtime: &Self::PlatformRuntimeType,
-        active_data: &Self::PlatformActiveData,
+        active_data: &Self::PlatformActiveRuntimeData,
     ) -> ActiveState {
         active_data.check_runtime(runtime)
     }

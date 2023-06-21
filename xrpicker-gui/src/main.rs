@@ -202,21 +202,21 @@ impl<T: Platform> EguiAppState<T> for AppState<T> {
                         ui.label(egui::RichText::new("Details").size(TABLE_HEADER_TEXT_SIZE));
                         ui.end_row();
 
-                        for runtime in &self.runtimes {
-                            let runtime_active_state =
-                                platform.get_runtime_active_state(runtime, &self.active_data);
+                        for layer in &self.layers {
+                            let layer_active_state =
+                                platform.get_layer_active_state(layer, &self.active_data);
                             let mut active = false;
                             let check = ui.checkbox(&mut active, "");
 
                             if check.changed() {
-                                if let Err(e) = runtime.make_active() {
+                                if let Err(e) = layer.make_active() {
                                     eprintln!("error in make_active: {:?}", e);
                                     return Err(e);
                                 }
                                 repopulate = true;
                             }
-                            ui.label(runtime.get_runtime_name());
-                            ui.label(runtime.describe());
+                            ui.label(layer.get_layer_name());
+                            ui.label(layer.describe());
                             ui.end_row();
                         }
                         Ok(repopulate)

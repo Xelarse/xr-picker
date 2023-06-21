@@ -7,7 +7,7 @@ use xrpicker::{make_platform, platform::PlatformRuntime, Platform};
 
 fn main() {
     let platform = make_platform();
-    let active_data = platform.get_active_data();
+    let active_data = platform.get_active_runtime_data();
     let (runtimes, nonfatal_errors) = platform
         .find_available_runtimes(Box::new(iter::empty()))
         .unwrap();

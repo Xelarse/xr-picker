@@ -60,8 +60,9 @@ impl IterateExtraPaths for Option<PersistentAppState> {
 /// as well as wrap it in a struct (probably one that owns a Platform implementation too)
 pub struct AppState<T: Platform> {
     pub runtimes: Vec<T::PlatformRuntimeType>,
+    pub api_layers: Vec<T::PlatformApiLayerType>,
     pub nonfatal_errors: Vec<ManifestError>,
-    pub active_data: T::PlatformActiveData,
+    pub active_data: T::PlatformActiveRuntimeData,
 }
 
 impl<T: Platform> AppState<T> {
@@ -69,7 +70,7 @@ impl<T: Platform> AppState<T> {
     pub fn new(platform: &T) -> Result<Self, Error> {
         let (runtimes, nonfatal_errors) =
             platform.find_available_runtimes(Box::new(iter::empty()))?;
-        let active_data = platform.get_active_data();
+        let active_data = platform.get_active_runtime_data();
         Ok(Self {
             runtimes,
             nonfatal_errors,
@@ -83,7 +84,7 @@ impl<T: Platform> AppState<T> {
     ) -> Result<Self, Error> {
         let (runtimes, nonfatal_errors) =
             platform.find_available_runtimes(persistent_state.iterate_extra_paths())?;
-        let active_data = platform.get_active_data();
+        let active_data = platform.get_active_runtime_data();
         Ok(Self {
             runtimes,
             nonfatal_errors,
@@ -101,7 +102,7 @@ impl<T: Platform> AppState<T> {
         let (new_runtimes, new_nonfatal_errors) =
             platform.find_available_runtimes(persistent_state.iterate_extra_paths())?;
 
-        let active_data = platform.get_active_data();
+        let active_data = platform.get_active_runtime_data();
 
         // start with existing runtimes
         let runtimes = self
