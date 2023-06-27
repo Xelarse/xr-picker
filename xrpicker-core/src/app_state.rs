@@ -61,20 +61,29 @@ impl IterateExtraPaths for Option<PersistentAppState> {
 pub struct AppState<T: Platform> {
     pub runtimes: Vec<T::PlatformRuntimeType>,
     pub api_layers: Vec<T::PlatformApiLayerType>,
-    pub nonfatal_errors: Vec<ManifestError>,
-    pub active_data: T::PlatformActiveRuntimeData,
+    pub nonfatal_runtime_errors: Vec<ManifestError>,
+    pub nonfatal_api_layer_errors: Vec<ManifestError>,
+    pub active_runtime_data: T::PlatformActiveRuntimeData,
+    pub active_api_layer_data: T::PlatformActiveApiLayerData,
 }
 
 impl<T: Platform> AppState<T> {
     /// Try creating state from scratch
     pub fn new(platform: &T) -> Result<Self, Error> {
-        let (runtimes, nonfatal_errors) =
+        let (runtimes, nonfatal_runtime_errors) =
             platform.find_available_runtimes(Box::new(iter::empty()))?;
-        let active_data = platform.get_active_runtime_data();
+        let active_runtime_data = platform.get_active_runtime_data();
+        let (api_layers, nonfatal_api_layer_errors) =
+            platform.find_available_api_layers(Box::new(iter::empty()))?;
+        let active_api_layer_data = platform.get_active_api_layer_data();
+
         Ok(Self {
             runtimes,
-            nonfatal_errors,
-            active_data,
+            api_layers,
+            nonfatal_runtime_errors,
+            nonfatal_api_layer_errors,
+            active_runtime_data,
+            active_api_layer_data,
         })
     }
 
@@ -82,13 +91,19 @@ impl<T: Platform> AppState<T> {
         platform: &T,
         persistent_state: &PersistentAppState,
     ) -> Result<Self, Error> {
-        let (runtimes, nonfatal_errors) =
+        let (runtimes, nonfatal_runtime_errors) =
             platform.find_available_runtimes(persistent_state.iterate_extra_paths())?;
-        let active_data = platform.get_active_runtime_data();
+        let active_runtime_data = platform.get_active_runtime_data();
+        let (api_layers, nonfatal_api_layer_errors) =
+            platform.find_available_api_layers(persistent_state.iterate_extra_paths())?;
+        let active_api_layer_data = platform.get_active_api_layer_data();
         Ok(Self {
             runtimes,
-            nonfatal_errors,
-            active_data,
+            api_layers,
+            nonfatal_runtime_errors,
+            nonfatal_api_layer_errors,
+            active_runtime_data,
+            active_api_layer_data,
         })
     }
 
@@ -102,7 +117,7 @@ impl<T: Platform> AppState<T> {
         let (new_runtimes, new_nonfatal_errors) =
             platform.find_available_runtimes(persistent_state.iterate_extra_paths())?;
 
-        let active_data = platform.get_active_runtime_data();
+        let active_runtime_data = platform.get_active_runtime_data();
 
         // start with existing runtimes
         let runtimes = self
@@ -119,10 +134,19 @@ impl<T: Platform> AppState<T> {
                     .collect::<Vec<_>>()
             })
             .collect();
+
+        //TODO: Do similar as above for api layers. Currently just does a full recreate.
+        let (api_layers, nonfatal_api_layer_errors) =
+            platform.find_available_api_layers(persistent_state.iterate_extra_paths())?;
+        let active_api_layer_data = platform.get_active_api_layer_data();
+
         Ok(Self {
             runtimes,
-            nonfatal_errors: new_nonfatal_errors,
-            active_data,
+            api_layers,
+            nonfatal_runtime_errors: new_nonfatal_errors,
+            nonfatal_api_layer_errors,
+            active_runtime_data,
+            active_api_layer_data,
         })
     }
 }
