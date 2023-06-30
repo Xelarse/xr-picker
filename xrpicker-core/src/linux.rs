@@ -3,7 +3,9 @@
 
 use xdg::{BaseDirectories, BaseDirectoriesError};
 
+use crate::platform::PlatformApiLayer;
 use crate::{
+    api_layer::BaseApiLayer,
     manifest::{GenericManifest, FILE_INDIRECTION_ARROW},
     path_simplifier::PathSimplifier,
     platform::{Platform, PlatformRuntime},
@@ -38,6 +40,7 @@ pub struct LinuxRuntime {
 impl LinuxRuntime {
     fn new(orig_path: &Path, canonical_path: &Path) -> Result<Self, Error> {
         let base = BaseRuntime::new(canonical_path)?;
+
         Ok(LinuxRuntime {
             base,
             orig_path: orig_path.to_owned(),
@@ -117,6 +120,99 @@ impl PlatformRuntime for LinuxRuntime {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct LinuxApiLayer {
+    base: BaseApiLayer,
+    orig_path: PathBuf,
+}
+
+impl LinuxApiLayer {
+    fn new(orig_path: &Path, canonical_path: &Path) -> Result<Self, Error> {
+        let base = BaseApiLayer::new(canonical_path)?;
+
+        Ok(LinuxApiLayer {
+            base,
+            orig_path: orig_path.to_owned(),
+        })
+    }
+}
+
+impl PlatformApiLayer for LinuxApiLayer {
+    fn make_active(&self) -> Result<(), Error> {
+        // fn convert_err(e: BaseDirectoriesError) -> Error {
+        //     Error::SetActiveError(e.to_string())
+        // }
+        // let dirs = BaseDirectories::new().map_err(convert_err)?;
+        // let suffix = make_path_suffix();
+        // let path = dirs.place_config_file(suffix.join(ACTIVE_RUNTIME_FILENAME))?;
+        //
+        // // First move the old file out of the way, if any.
+        // let timestamp = SystemTime::now()
+        //     .duration_since(UNIX_EPOCH)
+        //     .unwrap_or_default()
+        //     .as_secs();
+        // let move_target =
+        //     dirs.place_config_file(suffix.join(format!("old_active_runtime{}.json", timestamp)))?;
+        //
+        // match fs::rename(&path, &move_target) {
+        //     Ok(_) => {
+        //         // Only keep our renamed file if it wasn't a symlink
+        //         if let Ok(m) = move_target.symlink_metadata() {
+        //             if m.is_symlink() && fs::remove_file(&move_target).is_err() {
+        //                 // that's ok
+        //                 eprintln!(
+        //                     "Got an error trying to remove an apparently-symlink {}",
+        //                     move_target.display()
+        //                 )
+        //             }
+        //         }
+        //     }
+        //     Err(e) => {
+        //         // ignore and hope it meant there was just nothing to move
+        //         eprintln!(
+        //             "Got an error trying to rename {} to {}: {}",
+        //             path.display(),
+        //             move_target.display(),
+        //             e
+        //         );
+        //     }
+        // }
+        // unix::fs::symlink(self.base.get_manifest_path(), &path)?;
+        // Ok(())
+        todo!();
+    }
+
+    fn get_layer_name(&self) -> String {
+        self.base.get_api_layer_name()
+    }
+
+    fn get_manifests(&self) -> Vec<&Path> {
+        // vec![self.base.get_manifest_path()]
+        todo!();
+    }
+
+    fn get_libraries(&self) -> Vec<PathBuf> {
+        // let path = self.base.resolve_library_path();
+        // vec![path]
+        todo!();
+    }
+
+    fn describe(&self) -> String {
+        // let description = self.base.describe_manifest(self.base.get_manifest_path());
+        // if self.orig_path != self.base.get_manifest_path() {
+        //     format!(
+        //         "{}{}{}",
+        //         PathSimplifier::new().simplify(&self.orig_path).display(),
+        //         FILE_INDIRECTION_ARROW,
+        //         description
+        //     )
+        // } else {
+        //     description
+        // }
+        todo!();
+    }
+}
+
 pub struct LinuxPlatform {
     path_suffix: PathBuf,
 }
@@ -132,7 +228,7 @@ fn is_active_runtime_name(p: &Path) -> bool {
     p.file_name().map(|s| s.as_bytes()) == Some(ACTIVE_RUNTIME_FILENAME.as_bytes())
 }
 
-fn find_potential_manifests_xdg(suffix: &Path) -> impl Iterator<Item = PathBuf> {
+fn find_potential_runtime_manifests_xdg(suffix: &Path) -> impl Iterator<Item = PathBuf> {
     let suffix = suffix.to_owned();
     BaseDirectories::new()
         .ok()
@@ -141,7 +237,7 @@ fn find_potential_manifests_xdg(suffix: &Path) -> impl Iterator<Item = PathBuf> 
         .filter(|p| !is_active_runtime_name(p))
 }
 
-fn find_potential_manifests_sysconfdir(suffix: &Path) -> impl Iterator<Item = PathBuf> {
+fn find_potential_runtime_manifests_sysconfdir(suffix: &Path) -> impl Iterator<Item = PathBuf> {
     make_sysconfdir(suffix)
         .read_dir()
         .into_iter()
@@ -158,6 +254,36 @@ fn find_potential_manifests_sysconfdir(suffix: &Path) -> impl Iterator<Item = Pa
         .filter(|p| !is_active_runtime_name(p))
 }
 
+fn find_potential_api_layer_manifests_xdg(suffix: &Path) -> impl Iterator<Item = PathBuf> {
+    // let suffix = suffix.to_owned();
+    // BaseDirectories::new()
+    //     .ok()
+    //     .into_iter()
+    //     .flat_map(move |xdg_dirs| xdg_dirs.list_config_files(&suffix))
+    //     .filter(|p| !is_active_runtime_name(p))
+    todo!();
+    Vec::<PathBuf>::new().into_iter()
+}
+
+fn find_potential_api_layer_manifests_sysconfdir(suffix: &Path) -> impl Iterator<Item = PathBuf> {
+    // make_sysconfdir(suffix)
+    //     .read_dir()
+    //     .into_iter()
+    //     .flatten()
+    //     .filter_map(|r| r.ok())
+    //     .filter(|entry| {
+    //         // keep only files and symlinks
+    //         entry
+    //             .metadata()
+    //             .map(|m| m.is_file() || m.is_symlink())
+    //             .unwrap_or(false)
+    //     })
+    //     .map(|entry| entry.path())
+    //     .filter(|p| !is_active_runtime_name(p))
+    todo!();
+    Vec::<PathBuf>::new().into_iter()
+}
+
 pub struct LinuxActiveRuntimeData(Option<PathBuf>);
 
 impl LinuxActiveRuntimeData {
@@ -172,6 +298,25 @@ impl LinuxActiveRuntimeData {
             }
         }
         ActiveState::NotActive
+    }
+}
+
+pub struct LinuxActiveApiLayerData(Option<PathBuf>);
+
+impl LinuxActiveApiLayerData {
+    fn new() -> Self {
+        // LinuxActiveApiLayerData(possible_active_runtimes().next())
+        todo!();
+    }
+
+    fn check_layer(&self, api_layer: &LinuxApiLayer) -> ActiveState {
+        // if let Some(active_path) = &self.0 {
+        //     if active_path == runtime.base.get_manifest_path() {
+        //         return ActiveState::ActiveIndependentRuntime;
+        //     }
+        // }
+        // ActiveState::NotActive
+        todo!();
     }
 }
 
@@ -197,9 +342,35 @@ fn possible_active_runtimes() -> impl Iterator<Item = PathBuf> {
         .filter_map(|p| p.canonicalize().ok())
 }
 
+fn possible_active_api_layers() -> impl Iterator<Item = PathBuf> {
+    // let suffix = make_path_suffix().join(ACTIVE_RUNTIME_FILENAME);
+    // let etc_iter = once(make_sysconfdir(&suffix));
+    // // Warning: BaseDirectories returns increasing order of importance, which is
+    // // opposite of what we want, so we reverse it.
+    // let xdg_iter = BaseDirectories::new()
+    //     .ok()
+    //     .into_iter()
+    //     .flat_map(move |d| d.find_config_files(&suffix))
+    //     .rev();
+    //
+    // xdg_iter
+    //     .chain(etc_iter)
+    //     .filter(|p| {
+    //         p.metadata()
+    //             .map(|m| m.is_file() || m.is_symlink())
+    //             .ok()
+    //             .unwrap_or_default()
+    //     })
+    //     .filter_map(|p| p.canonicalize().ok())
+    todo!();
+    Vec::<PathBuf>::new().into_iter()
+}
+
 impl Platform for LinuxPlatform {
     type PlatformRuntimeType = LinuxRuntime;
+    type PlatformApiLayerType = LinuxApiLayer;
     type PlatformActiveRuntimeData = LinuxActiveRuntimeData;
+    type PlatformActiveApiLayerData = LinuxActiveApiLayerData;
 
     fn find_available_runtimes(
         &self,
@@ -207,8 +378,10 @@ impl Platform for LinuxPlatform {
     ) -> Result<(Vec<Self::PlatformRuntimeType>, Vec<ManifestError>), Error> {
         let mut known_manifests: HashSet<PathBuf> = HashSet::default();
 
-        let manifest_files = find_potential_manifests_xdg(&self.path_suffix)
-            .chain(find_potential_manifests_sysconfdir(&self.path_suffix))
+        let manifest_files = find_potential_runtime_manifests_xdg(&self.path_suffix)
+            .chain(find_potential_runtime_manifests_sysconfdir(
+                &self.path_suffix,
+            ))
             .chain(possible_active_runtimes()) // put these almost last so they are only included if they mention a not-previously-found runtime
             .chain(extra_paths)
             .filter_map(|p| p.canonicalize().ok().map(|canonical| (p, canonical)));
@@ -259,6 +432,29 @@ impl Platform for LinuxPlatform {
         active_data: &Self::PlatformActiveRuntimeData,
     ) -> ActiveState {
         active_data.check_runtime(runtime)
+    }
+
+    fn find_available_api_layers(
+        &self,
+        extra_paths: Box<dyn '_ + Iterator<Item = PathBuf>>,
+    ) -> Result<(Vec<Self::PlatformApiLayerType>, Vec<ManifestError>), Error> {
+        todo!()
+    }
+
+    fn get_active_api_layer_manifests(&self) -> Vec<PathBuf> {
+        todo!()
+    }
+
+    fn get_active_api_layer_data(&self) -> Self::PlatformActiveApiLayerData {
+        todo!()
+    }
+
+    fn get_api_layer_active_state(
+        &self,
+        layer: &Self::PlatformApiLayerType,
+        active_data: &Self::PlatformActiveApiLayerData,
+    ) -> ActiveState {
+        todo!()
     }
 }
 

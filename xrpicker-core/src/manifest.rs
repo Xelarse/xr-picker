@@ -81,6 +81,15 @@ pub(crate) mod json_subobjects {
         pub(crate) name: Option<String>,
         pub(crate) functions: Option<RuntimeFunctions>,
     }
+
+    /// The main object in a api layer manifest
+    // TODO: make sure this schema matches layer manifests instead
+    #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+    pub(crate) struct ApiLayer {
+        pub(crate) library_path: String,
+        pub(crate) name: Option<String>,
+        pub(crate) functions: Option<RuntimeFunctions>,
+    }
 }
 
 /// Top level structure corresponding to a runtime manifest
@@ -93,6 +102,22 @@ pub(crate) struct RuntimeManifest {
 impl GenericManifest for RuntimeManifest {
     fn library_path(&self) -> &str {
         &self.runtime.library_path
+    }
+    fn is_file_format_version_ok(&self) -> bool {
+        self.file_format_version == "1.0.0"
+    }
+}
+
+/// Top level structure corresponding to a api layer manifest
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub(crate) struct ApiLayerManifest {
+    file_format_version: String,
+    pub(crate) api_layer: json_subobjects::ApiLayer,
+}
+
+impl GenericManifest for ApiLayerManifest {
+    fn library_path(&self) -> &str {
+        &self.api_layer.library_path
     }
     fn is_file_format_version_ok(&self) -> bool {
         self.file_format_version == "1.0.0"

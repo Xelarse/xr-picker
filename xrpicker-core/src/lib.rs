@@ -9,6 +9,7 @@ pub const ACTIVE_RUNTIME_FILENAME: &str = "active_runtime.json";
 /// Directory used in constructing paths
 pub const OPENXR: &str = "openxr";
 
+pub(crate) mod api_layer;
 mod app_state;
 #[cfg(windows)]
 pub(crate) mod arch_detect;
