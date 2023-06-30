@@ -13,7 +13,8 @@ use eframe::{
 
 use itertools::Itertools;
 use xrpicker::{
-    make_platform, platform::PlatformRuntime, AppState, Error, PersistentAppState, Platform,
+    make_platform, platform::PlatformApiLayer, platform::PlatformRuntime, AppState, Error,
+    PersistentAppState, Platform,
 };
 
 // const ICON_32: &[u8; 542] = include_bytes!("../assets/icon/icon32.png");
@@ -128,14 +129,15 @@ trait EguiAppState<T: Platform> {
 
 impl<T: Platform> EguiAppState<T> for AppState<T> {
     fn add_non_fatal_errors_listing(&self, ui: &mut egui::Ui) {
-        if self.nonfatal_errors.is_empty() {
+        if self.nonfatal_runtime_errors.is_empty() && self.nonfatal_api_layer_errors.is_empty() {
             return;
         }
 
         ui.label("Non-fatal errors from manifest loading:");
         ui.label(
-            self.nonfatal_errors
+            self.nonfatal_runtime_errors
                 .iter()
+                .chain(self.nonfatal_api_layer_errors.iter())
                 .map(|e| format!("- {} - {:?}\n", e.0.display(), e.1))
                 .join("\n"),
         );
@@ -159,8 +161,8 @@ impl<T: Platform> EguiAppState<T> for AppState<T> {
                         ui.end_row();
 
                         for runtime in &self.runtimes {
-                            let runtime_active_state =
-                                platform.get_runtime_active_state(runtime, &self.active_data);
+                            let runtime_active_state = platform
+                                .get_runtime_active_state(runtime, &self.active_runtime_data);
                             if runtime_active_state.should_provide_make_active_button() {
                                 if ui.button("Make active").clicked() {
                                     if let Err(e) = runtime.make_active() {
@@ -202,9 +204,9 @@ impl<T: Platform> EguiAppState<T> for AppState<T> {
                         ui.label(egui::RichText::new("Details").size(TABLE_HEADER_TEXT_SIZE));
                         ui.end_row();
 
-                        for layer in &self.layers {
-                            let layer_active_state =
-                                platform.get_layer_active_state(layer, &self.active_data);
+                        for layer in &self.api_layers {
+                            let layer_active_state = platform
+                                .get_api_layer_active_state(layer, &self.active_api_layer_data);
                             let mut active = false;
                             let check = ui.checkbox(&mut active, "");
 
@@ -303,7 +305,7 @@ impl<T: Platform> GuiView<T> for AppState<T> {
     ) -> Result<AppState<T>, Error> {
         egui::TopBottomPanel::bottom("about").show(ctx, add_about_contents);
 
-        if !self.nonfatal_errors.is_empty() {
+        if !self.nonfatal_runtime_errors.is_empty() || !self.nonfatal_api_layer_errors.is_empty() {
             egui::TopBottomPanel::bottom("non_fatal_errors")
                 .show(ctx, |ui| self.add_non_fatal_errors_listing(ui));
         }
