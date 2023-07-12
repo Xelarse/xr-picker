@@ -48,10 +48,11 @@ pub enum Error {
 #[derive(Debug)]
 pub struct ManifestError(pub PathBuf, pub Error);
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ActiveState {
     NotActive,
     ActiveIndependentRuntime,
+    ActiveIndependentApiLayer,
     Active64,
     Active32,
     Active64and32,
@@ -62,6 +63,7 @@ impl Display for ActiveState {
         match self {
             ActiveState::NotActive => write!(f, ""),
             ActiveState::ActiveIndependentRuntime => write!(f, "Active"),
+            ActiveState::ActiveIndependentApiLayer => write!(f, "Layer Active"),
             ActiveState::Active64 => write!(f, "Active - 64-bit only"),
             ActiveState::Active32 => write!(f, "Active - 32-bit only"),
             ActiveState::Active64and32 => write!(f, "Active"),
@@ -86,6 +88,7 @@ impl ActiveState {
         match self {
             ActiveState::NotActive => true,
             ActiveState::ActiveIndependentRuntime => false,
+            ActiveState::ActiveIndependentApiLayer => false,
             ActiveState::Active64 => true,
             ActiveState::Active32 => true,
             ActiveState::Active64and32 => false,

@@ -82,13 +82,34 @@ pub(crate) mod json_subobjects {
         pub(crate) functions: Option<RuntimeFunctions>,
     }
 
+    // Table containing all the extensions the api layer brings support for
     /// The main object in a api layer manifest
-    // TODO: make sure this schema matches layer manifests instead
+    #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+    pub(crate) struct ApiLayerInstanceExtension {
+        pub(crate) name: String,
+        pub(crate) extension_version: u8,
+        pub(crate) entrypoints: Vec<String>,
+    }
+
+    /// The optional table of function symbol renaming in a runtime manifest
+    #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+    pub(crate) struct ApiLayerFunctions {
+        #[serde(rename = "xrNegotiateLoaderRuntimeInterface")]
+        pub(crate) xr_negotiate_loader_runtime_interface: Option<String>,
+    }
+
+    /// The main object in a api layer manifest
     #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
     pub(crate) struct ApiLayer {
+        pub(crate) name: String,
         pub(crate) library_path: String,
-        pub(crate) name: Option<String>,
-        pub(crate) functions: Option<RuntimeFunctions>,
+        pub(crate) api_version: String,
+        pub(crate) implementation_version: String,
+        pub(crate) description: String,
+        pub(crate) functions: Option<ApiLayerFunctions>,
+        pub(crate) instance_extensions: Option<Vec<ApiLayerInstanceExtension>>,
+        pub(crate) enable_environment: Option<String>,
+        pub(crate) disable_environment: Option<String>,
     }
 }
 

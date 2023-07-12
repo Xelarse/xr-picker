@@ -25,7 +25,7 @@ pub trait PlatformRuntime {
 /// Trait for platform-specific interaction with an api layer.
 pub trait PlatformApiLayer {
     /// Attempt to make this layer active.
-    fn make_active(&self) -> Result<(), Error>;
+    fn toggle_layer(&self) -> Result<(), Error>;
 
     /// Get a name for the api layer, preferably the self-declared one.
     ///
@@ -54,10 +54,6 @@ pub trait Platform {
     /// Platform-specific type for a api layer, must implement `PlatformType`
     type PlatformApiLayerType: PlatformApiLayer;
 
-    /// Platform-specific data describing the currently active Api Layer(s).
-    /// Meant to be opaque and just used in `get_api_layer_active_state()`
-    type PlatformActiveApiLayerData;
-
     /// Enumerate all available runtimes we might be aware of.
     fn find_available_runtimes(
         &self,
@@ -73,18 +69,13 @@ pub trait Platform {
     /// Get the paths of all active runtime manifests. (There may be one per architecture.)
     fn get_active_runtime_manifests(&self) -> Vec<PathBuf>;
 
-    /// Get the paths of all active api layer manifests. (There may be one per architecture.)
+    /// Get the paths of all active api layer manifests.
     fn get_active_api_layer_manifests(&self) -> Vec<PathBuf>;
 
     /// Get a snapshot of what the active runtime(s) is/are,
     /// to use when checking if a runtime we know about is active.
     /// Returns a relatively opaque type used to pass into `get_runtime_active_state()`
     fn get_active_runtime_data(&self) -> Self::PlatformActiveRuntimeData;
-
-    /// Get a snapshot of what the active api layer(s) is/are,
-    /// to use when checking if a layer we know about is active.
-    /// Returns a relatively opaque type used to pass into `get_api_layer_active_state()`
-    fn get_active_api_layer_data(&self) -> Self::PlatformActiveApiLayerData;
 
     /// Is the given runtime marked as active?
     ///
@@ -100,9 +91,5 @@ pub trait Platform {
     ///
     /// Some platforms might have separate 32-bit and 64-bit active runtime settings,
     /// which makes this more complex than a bool.
-    fn get_api_layer_active_state(
-        &self,
-        layer: &Self::PlatformApiLayerType,
-        active_data: &Self::PlatformActiveApiLayerData,
-    ) -> ActiveState;
+    fn get_api_layer_active_state(&self, layer: &Self::PlatformApiLayerType) -> ActiveState;
 }

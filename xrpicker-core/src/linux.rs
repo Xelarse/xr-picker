@@ -3,15 +3,16 @@
 
 use xdg::{BaseDirectories, BaseDirectoriesError};
 
-use crate::platform::PlatformApiLayer;
 use crate::{
     api_layer::BaseApiLayer,
     manifest::{GenericManifest, FILE_INDIRECTION_ARROW},
     path_simplifier::PathSimplifier,
-    platform::{Platform, PlatformRuntime},
+    platform::{Platform, PlatformApiLayer, PlatformRuntime},
     runtime::BaseRuntime,
     ActiveState, Error, ManifestError, ACTIVE_RUNTIME_FILENAME, OPENXR, OPENXR_MAJOR_VERSION,
 };
+use itertools::Itertools;
+use std::ffi::OsStr;
 use std::{
     collections::HashSet,
     fs,
@@ -29,6 +30,13 @@ fn make_path_suffix() -> PathBuf {
 
 fn make_sysconfdir(suffix: &Path) -> PathBuf {
     Path::new(ETC).join(suffix)
+}
+
+fn make_api_layer_suffixes(suffix: &Path) -> Vec<PathBuf> {
+    Vec::from([
+        suffix.join("/api_layers/explicit.d"),
+        suffix.join("/api_layers/implicit.d"),
+    ])
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -120,6 +128,47 @@ impl PlatformRuntime for LinuxRuntime {
     }
 }
 
+/*
+Possible API: layer search paths:
+/etc/xdg/openxr/1/api_layers/explicit.d
+/etc/xdg/openxr/1/api_layers/implicit.d
+
+/usr/local/etc/xdg/openxr/1/api_layers/explicit.d
+/usr/local/etc/xdg/openxr/1/api_layers/implicit.d
+
+/etc/openxr/1/api_layers/explicit.d
+/etc/openxr/1/api_layers/implicit.d
+
+/usr/local/share/openxr/1/api_layers/explicit.d
+/usr/local/share/openxr/1/api_layers/implicit.d
+
+/usr/share/openxr/1/api_layers/explicit.d
+/usr/share/openxr/1/api_layers/implicit.d
+
+$HOME/.local/share/openxr/1/api_layers/explicit.d
+$HOME/.local/share/openxr/1/api_layers/implicit.d
+
+ */
+
+/*
+JSON interesting manifest members:
+
+"file_format_version" - SHOULD be 1.0.0 and assumed to be for our parsing to work.
+"api_layer" - all information pertaining to the layer, will nest below members into it.
+{
+    "name" - string name for layer
+    "library_path" - path to dll/so
+    "api_version" - major minor of oxr that the layer is built to be compat with eg 1.0
+    "implementation_version" - should update on major changes to the layer
+    "description" - self explanatory
+    "instance_extensions
+}
+
+
+
+
+ */
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct LinuxApiLayer {
     base: BaseApiLayer,
@@ -138,7 +187,7 @@ impl LinuxApiLayer {
 }
 
 impl PlatformApiLayer for LinuxApiLayer {
-    fn make_active(&self) -> Result<(), Error> {
+    fn toggle_layer(&self) -> Result<(), Error> {
         // fn convert_err(e: BaseDirectoriesError) -> Error {
         //     Error::SetActiveError(e.to_string())
         // }
@@ -178,8 +227,7 @@ impl PlatformApiLayer for LinuxApiLayer {
         //     }
         // }
         // unix::fs::symlink(self.base.get_manifest_path(), &path)?;
-        // Ok(())
-        todo!();
+        Ok(())
     }
 
     fn get_layer_name(&self) -> String {
@@ -187,29 +235,26 @@ impl PlatformApiLayer for LinuxApiLayer {
     }
 
     fn get_manifests(&self) -> Vec<&Path> {
-        // vec![self.base.get_manifest_path()]
-        todo!();
+        vec![self.base.get_manifest_path()]
     }
 
     fn get_libraries(&self) -> Vec<PathBuf> {
-        // let path = self.base.resolve_library_path();
-        // vec![path]
-        todo!();
+        let path = self.base.resolve_library_path();
+        vec![path]
     }
 
     fn describe(&self) -> String {
-        // let description = self.base.describe_manifest(self.base.get_manifest_path());
-        // if self.orig_path != self.base.get_manifest_path() {
-        //     format!(
-        //         "{}{}{}",
-        //         PathSimplifier::new().simplify(&self.orig_path).display(),
-        //         FILE_INDIRECTION_ARROW,
-        //         description
-        //     )
-        // } else {
-        //     description
-        // }
-        todo!();
+        let description = self.base.describe_manifest(self.base.get_manifest_path());
+        if self.orig_path != self.base.get_manifest_path() {
+            format!(
+                "{}{}{}",
+                PathSimplifier::new().simplify(&self.orig_path).display(),
+                FILE_INDIRECTION_ARROW,
+                description
+            )
+        } else {
+            description
+        }
     }
 }
 
@@ -255,33 +300,24 @@ fn find_potential_runtime_manifests_sysconfdir(suffix: &Path) -> impl Iterator<I
 }
 
 fn find_potential_api_layer_manifests_xdg(suffix: &Path) -> impl Iterator<Item = PathBuf> {
-    // let suffix = suffix.to_owned();
-    // BaseDirectories::new()
-    //     .ok()
-    //     .into_iter()
-    //     .flat_map(move |xdg_dirs| xdg_dirs.list_config_files(&suffix))
-    //     .filter(|p| !is_active_runtime_name(p))
-    todo!();
-    Vec::<PathBuf>::new().into_iter()
+    let suffix = suffix.to_owned();
+    BaseDirectories::new()
+        .ok()
+        .into_iter()
+        .flat_map(move |xdg_dirs| xdg_dirs.list_config_files(&suffix))
 }
 
 fn find_potential_api_layer_manifests_sysconfdir(suffix: &Path) -> impl Iterator<Item = PathBuf> {
-    // make_sysconfdir(suffix)
-    //     .read_dir()
-    //     .into_iter()
-    //     .flatten()
-    //     .filter_map(|r| r.ok())
-    //     .filter(|entry| {
-    //         // keep only files and symlinks
-    //         entry
-    //             .metadata()
-    //             .map(|m| m.is_file() || m.is_symlink())
-    //             .unwrap_or(false)
-    //     })
-    //     .map(|entry| entry.path())
-    //     .filter(|p| !is_active_runtime_name(p))
-    todo!();
-    Vec::<PathBuf>::new().into_iter()
+    make_sysconfdir(suffix)
+        .read_dir()
+        .into_iter()
+        .flatten()
+        .filter_map(|r| r.ok())
+        .filter(|entry| {
+            // keep only files and symlinks
+            entry.metadata().map(|m| m.is_file()).unwrap_or(false)
+        })
+        .map(|entry| entry.path())
 }
 
 pub struct LinuxActiveRuntimeData(Option<PathBuf>);
@@ -298,25 +334,6 @@ impl LinuxActiveRuntimeData {
             }
         }
         ActiveState::NotActive
-    }
-}
-
-pub struct LinuxActiveApiLayerData(Option<PathBuf>);
-
-impl LinuxActiveApiLayerData {
-    fn new() -> Self {
-        // LinuxActiveApiLayerData(possible_active_runtimes().next())
-        todo!();
-    }
-
-    fn check_layer(&self, api_layer: &LinuxApiLayer) -> ActiveState {
-        // if let Some(active_path) = &self.0 {
-        //     if active_path == runtime.base.get_manifest_path() {
-        //         return ActiveState::ActiveIndependentRuntime;
-        //     }
-        // }
-        // ActiveState::NotActive
-        todo!();
     }
 }
 
@@ -343,34 +360,26 @@ fn possible_active_runtimes() -> impl Iterator<Item = PathBuf> {
 }
 
 fn possible_active_api_layers() -> impl Iterator<Item = PathBuf> {
-    // let suffix = make_path_suffix().join(ACTIVE_RUNTIME_FILENAME);
-    // let etc_iter = once(make_sysconfdir(&suffix));
-    // // Warning: BaseDirectories returns increasing order of importance, which is
-    // // opposite of what we want, so we reverse it.
-    // let xdg_iter = BaseDirectories::new()
-    //     .ok()
-    //     .into_iter()
-    //     .flat_map(move |d| d.find_config_files(&suffix))
-    //     .rev();
-    //
-    // xdg_iter
-    //     .chain(etc_iter)
-    //     .filter(|p| {
-    //         p.metadata()
-    //             .map(|m| m.is_file() || m.is_symlink())
-    //             .ok()
-    //             .unwrap_or_default()
-    //     })
-    //     .filter_map(|p| p.canonicalize().ok())
-    todo!();
-    Vec::<PathBuf>::new().into_iter()
+    let suffixes = make_api_layer_suffixes(&make_path_suffix())
+        .iter_mut()
+        .map(|p| p.join("*.json"))
+        .collect_vec();
+    let mut out_paths: Vec<PathBuf> = Vec::new();
+
+    for suffix in suffixes {
+        let xgd = find_potential_api_layer_manifests_xdg(suffix.as_path());
+        let etc = find_potential_api_layer_manifests_sysconfdir(suffix.as_path());
+
+        out_paths.append(&mut xgd.chain(etc).collect_vec());
+    }
+
+    out_paths.into_iter()
 }
 
 impl Platform for LinuxPlatform {
     type PlatformRuntimeType = LinuxRuntime;
-    type PlatformApiLayerType = LinuxApiLayer;
     type PlatformActiveRuntimeData = LinuxActiveRuntimeData;
-    type PlatformActiveApiLayerData = LinuxActiveApiLayerData;
+    type PlatformApiLayerType = LinuxApiLayer;
 
     fn find_available_runtimes(
         &self,
@@ -418,8 +427,59 @@ impl Platform for LinuxPlatform {
         Ok((runtimes, nonfatal_errors))
     }
 
+    fn find_available_api_layers(
+        &self,
+        extra_paths: Box<dyn '_ + Iterator<Item = PathBuf>>,
+    ) -> Result<(Vec<Self::PlatformApiLayerType>, Vec<ManifestError>), Error> {
+        let mut known_manifests: HashSet<PathBuf> = HashSet::default();
+
+        let manifest_files = find_potential_api_layer_manifests_xdg(&self.path_suffix)
+            .chain(find_potential_api_layer_manifests_sysconfdir(
+                &self.path_suffix,
+            ))
+            .chain(extra_paths)
+            .filter_map(|p| p.canonicalize().ok().map(|canonical| (p, canonical)));
+
+        let mut layers = vec![];
+        let mut nonfatal_errors = vec![];
+
+        for (orig_path, canonical) in manifest_files {
+            if known_manifests.contains(&orig_path) {
+                continue;
+            }
+            if known_manifests.contains(&canonical) {
+                continue;
+            }
+            let layer = match LinuxApiLayer::new(&orig_path, &canonical) {
+                Ok(r) => r,
+                Err(e) => {
+                    eprintln!(
+                        "Error when trying to load {} -> {}: {}",
+                        orig_path.display(),
+                        canonical.display(),
+                        e
+                    );
+                    nonfatal_errors.push(ManifestError(orig_path, e));
+                    continue;
+                }
+            };
+            layers.push(layer);
+            if orig_path != canonical {
+                known_manifests.insert(canonical);
+            }
+            known_manifests.insert(orig_path);
+        }
+        Ok((layers, nonfatal_errors))
+    }
+
     fn get_active_runtime_manifests(&self) -> Vec<PathBuf> {
         LinuxActiveRuntimeData::new().0.into_iter().collect()
+    }
+
+    fn get_active_api_layer_manifests(&self) -> Vec<PathBuf> {
+        possible_active_runtimes()
+            .filter(|p| p.extension().unwrap_or(OsStr::new("disabled")) != "disabled")
+            .collect_vec()
     }
 
     fn get_active_runtime_data(&self) -> Self::PlatformActiveRuntimeData {
@@ -434,27 +494,14 @@ impl Platform for LinuxPlatform {
         active_data.check_runtime(runtime)
     }
 
-    fn find_available_api_layers(
-        &self,
-        extra_paths: Box<dyn '_ + Iterator<Item = PathBuf>>,
-    ) -> Result<(Vec<Self::PlatformApiLayerType>, Vec<ManifestError>), Error> {
-        todo!()
-    }
-
-    fn get_active_api_layer_manifests(&self) -> Vec<PathBuf> {
-        todo!()
-    }
-
-    fn get_active_api_layer_data(&self) -> Self::PlatformActiveApiLayerData {
-        todo!()
-    }
-
-    fn get_api_layer_active_state(
-        &self,
-        layer: &Self::PlatformApiLayerType,
-        active_data: &Self::PlatformActiveApiLayerData,
-    ) -> ActiveState {
-        todo!()
+    fn get_api_layer_active_state(&self, layer: &Self::PlatformApiLayerType) -> ActiveState {
+        // To disable layers on linux we suffix the file name with .disabled
+        if let Some(suffix) = layer.orig_path.extension() {
+            if suffix == "disabled" {
+                ActiveState::NotActive
+            }
+        }
+        ActiveState::ActiveIndependentApiLayer
     }
 }
 
