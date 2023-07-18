@@ -470,16 +470,6 @@ impl Platform for LinuxPlatform {
     ) -> ActiveState {
         active_data.check_runtime(runtime)
     }
-
-    fn get_api_layer_active_state(&self, layer: &Self::PlatformApiLayerType) -> ActiveState {
-        // To disable layers on linux we suffix the file name with .disabled
-        if let Some(suffix) = layer.orig_path.extension() {
-            if suffix == "disabled" {
-                ActiveState::NotActive
-            }
-        }
-        ActiveState::ActiveIndependentApiLayer
-    }
 }
 
 /// Call to create a platform-specific object implementing the `Platform` trait.

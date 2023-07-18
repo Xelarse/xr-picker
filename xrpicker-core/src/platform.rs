@@ -88,10 +88,4 @@ pub trait Platform {
         runtime: &Self::PlatformRuntimeType,
         active_data: &Self::PlatformActiveRuntimeData,
     ) -> ActiveState;
-
-    /// Is the given api layer marked as active?
-    ///
-    /// Some platforms might have separate 32-bit and 64-bit active runtime settings,
-    /// which makes this more complex than a bool.
-    fn get_api_layer_active_state(&self, layer: &Self::PlatformApiLayerType) -> ActiveState;
 }
