@@ -39,6 +39,9 @@ pub enum Error {
     ManifestVersionMismatch,
 
     #[error("Error when trying to set active runtime: {0}")]
+    GetActiveError(String),
+    
+    #[error("Error when trying to set active runtime: {0}")]
     SetActiveError(String),
 
     #[error("Error when trying to load the runtime binary {0} to guess its architecture")]

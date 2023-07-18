@@ -64,7 +64,6 @@ pub struct AppState<T: Platform> {
     pub nonfatal_runtime_errors: Vec<ManifestError>,
     pub nonfatal_api_layer_errors: Vec<ManifestError>,
     pub active_runtime_data: T::PlatformActiveRuntimeData,
-    pub active_api_layer_data: T::PlatformActiveApiLayerData,
 }
 
 impl<T: Platform> AppState<T> {
@@ -75,7 +74,6 @@ impl<T: Platform> AppState<T> {
         let active_runtime_data = platform.get_active_runtime_data();
         let (api_layers, nonfatal_api_layer_errors) =
             platform.find_available_api_layers(Box::new(iter::empty()))?;
-        let active_api_layer_data = platform.get_active_api_layer_data();
 
         Ok(Self {
             runtimes,
@@ -83,7 +81,6 @@ impl<T: Platform> AppState<T> {
             nonfatal_runtime_errors,
             nonfatal_api_layer_errors,
             active_runtime_data,
-            active_api_layer_data,
         })
     }
 

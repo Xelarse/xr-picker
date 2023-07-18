@@ -13,6 +13,7 @@ use crate::{
 };
 use itertools::Itertools;
 use std::ffi::OsStr;
+use std::io::ErrorKind;
 use std::{
     collections::HashSet,
     fs,
@@ -128,47 +129,6 @@ impl PlatformRuntime for LinuxRuntime {
     }
 }
 
-/*
-Possible API: layer search paths:
-/etc/xdg/openxr/1/api_layers/explicit.d
-/etc/xdg/openxr/1/api_layers/implicit.d
-
-/usr/local/etc/xdg/openxr/1/api_layers/explicit.d
-/usr/local/etc/xdg/openxr/1/api_layers/implicit.d
-
-/etc/openxr/1/api_layers/explicit.d
-/etc/openxr/1/api_layers/implicit.d
-
-/usr/local/share/openxr/1/api_layers/explicit.d
-/usr/local/share/openxr/1/api_layers/implicit.d
-
-/usr/share/openxr/1/api_layers/explicit.d
-/usr/share/openxr/1/api_layers/implicit.d
-
-$HOME/.local/share/openxr/1/api_layers/explicit.d
-$HOME/.local/share/openxr/1/api_layers/implicit.d
-
- */
-
-/*
-JSON interesting manifest members:
-
-"file_format_version" - SHOULD be 1.0.0 and assumed to be for our parsing to work.
-"api_layer" - all information pertaining to the layer, will nest below members into it.
-{
-    "name" - string name for layer
-    "library_path" - path to dll/so
-    "api_version" - major minor of oxr that the layer is built to be compat with eg 1.0
-    "implementation_version" - should update on major changes to the layer
-    "description" - self explanatory
-    "instance_extensions
-}
-
-
-
-
- */
-
 #[derive(Debug, PartialEq, Eq)]
 pub struct LinuxApiLayer {
     base: BaseApiLayer,
@@ -187,46 +147,47 @@ impl LinuxApiLayer {
 }
 
 impl PlatformApiLayer for LinuxApiLayer {
-    fn toggle_layer(&self) -> Result<(), Error> {
-        // fn convert_err(e: BaseDirectoriesError) -> Error {
-        //     Error::SetActiveError(e.to_string())
-        // }
-        // let dirs = BaseDirectories::new().map_err(convert_err)?;
-        // let suffix = make_path_suffix();
-        // let path = dirs.place_config_file(suffix.join(ACTIVE_RUNTIME_FILENAME))?;
-        //
-        // // First move the old file out of the way, if any.
-        // let timestamp = SystemTime::now()
-        //     .duration_since(UNIX_EPOCH)
-        //     .unwrap_or_default()
-        //     .as_secs();
-        // let move_target =
-        //     dirs.place_config_file(suffix.join(format!("old_active_runtime{}.json", timestamp)))?;
-        //
-        // match fs::rename(&path, &move_target) {
-        //     Ok(_) => {
-        //         // Only keep our renamed file if it wasn't a symlink
-        //         if let Ok(m) = move_target.symlink_metadata() {
-        //             if m.is_symlink() && fs::remove_file(&move_target).is_err() {
-        //                 // that's ok
-        //                 eprintln!(
-        //                     "Got an error trying to remove an apparently-symlink {}",
-        //                     move_target.display()
-        //                 )
-        //             }
-        //         }
-        //     }
-        //     Err(e) => {
-        //         // ignore and hope it meant there was just nothing to move
-        //         eprintln!(
-        //             "Got an error trying to rename {} to {}: {}",
-        //             path.display(),
-        //             move_target.display(),
-        //             e
-        //         );
-        //     }
-        // }
-        // unix::fs::symlink(self.base.get_manifest_path(), &path)?;
+    fn toggle_layer(&mut self) -> Result<(), Error> {
+        fn convert_err(e: BaseDirectoriesError) -> Error {
+            Error::SetActiveError(e.to_string())
+        }
+
+        // First get the original path of the current Api layer and flip the target path between disabled / enabled.
+        let mut new_path = self.orig_path.clone();
+        if let Some(extension) = new_path.extension() {
+            if extension == "disabled" {
+                new_path.set_extension("json");
+            } else {
+                new_path.set_extension("disabled");
+            }
+        }
+
+        match fs::rename(&self.orig_path, &new_path) {
+            Ok(_) => {
+                // Only keep our renamed file if it wasn't a symlink
+                if let Ok(m) = new_path.symlink_metadata() {
+                    if m.is_symlink() && fs::remove_file(&new_path).is_err() {
+                        // that's ok
+                        eprintln!(
+                            "Got an error trying to remove an apparently-symlink {}",
+                            new_path.display()
+                        )
+                    }
+                }
+            }
+            Err(e) => {
+                // ignore and hope it meant there was just nothing to move
+                eprintln!(
+                    "Got an error trying to rename {} to {}: {}",
+                    self.orig_path.display(),
+                    new_path.display(),
+                    e
+                );
+            }
+        }
+
+        // Set the original path to the new one.
+        self.orig_path = new_path;
         Ok(())
     }
 
@@ -254,6 +215,22 @@ impl PlatformApiLayer for LinuxApiLayer {
             )
         } else {
             description
+        }
+    }
+
+    fn is_active(&self) -> Result<ActiveState, Error> {
+        if let Some(extension) = self.orig_path.extension() {
+            if extension == "disabled" {
+                Ok(ActiveState::NotActive)
+            } else {
+                Ok(ActiveState::ActiveIndependentApiLayer)
+            }
+        } else {
+            Err(Error::GetActiveError(format!(
+                "Api Layer: '{}', Path: '{}'",
+                self.base.get_api_layer_name(),
+                self.orig_path.display()
+            )))
         }
     }
 }

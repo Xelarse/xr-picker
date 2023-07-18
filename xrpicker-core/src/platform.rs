@@ -25,7 +25,7 @@ pub trait PlatformRuntime {
 /// Trait for platform-specific interaction with an api layer.
 pub trait PlatformApiLayer {
     /// Attempt to make this layer active.
-    fn toggle_layer(&self) -> Result<(), Error>;
+    fn toggle_layer(&mut self) -> Result<(), Error>;
 
     /// Get a name for the api layer, preferably the self-declared one.
     ///
@@ -37,6 +37,8 @@ pub trait PlatformApiLayer {
 
     /// Describe this specific instance of a runtime: usually using the manifest(s) and library
     fn describe(&self) -> String;
+
+    fn is_active(&self) -> Result<ActiveState, Error>;
 }
 
 /// Trait abstracting over the underlying system/platform type.
