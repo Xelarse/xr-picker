@@ -93,14 +93,12 @@ impl<T: Platform> AppState<T> {
         let active_runtime_data = platform.get_active_runtime_data();
         let (api_layers, nonfatal_api_layer_errors) =
             platform.find_available_api_layers(persistent_state.iterate_extra_paths())?;
-        let active_api_layer_data = platform.get_active_api_layer_data();
         Ok(Self {
             runtimes,
             api_layers,
             nonfatal_runtime_errors,
             nonfatal_api_layer_errors,
             active_runtime_data,
-            active_api_layer_data,
         })
     }
 
@@ -135,7 +133,6 @@ impl<T: Platform> AppState<T> {
         //TODO: Do similar as above for api layers. Currently just does a full recreate.
         let (api_layers, nonfatal_api_layer_errors) =
             platform.find_available_api_layers(persistent_state.iterate_extra_paths())?;
-        let active_api_layer_data = platform.get_active_api_layer_data();
 
         Ok(Self {
             runtimes,
@@ -143,7 +140,6 @@ impl<T: Platform> AppState<T> {
             nonfatal_runtime_errors: new_nonfatal_errors,
             nonfatal_api_layer_errors,
             active_runtime_data,
-            active_api_layer_data,
         })
     }
 }

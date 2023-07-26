@@ -3,14 +3,19 @@
 
 use std::iter;
 
-use xrpicker::{make_platform, platform::PlatformRuntime, Platform};
+use xrpicker::platform::PlatformApiLayer;
+use xrpicker::{make_platform, platform::PlatformRuntime, ActiveState, Platform};
 
 fn main() {
     let platform = make_platform();
     let active_data = platform.get_active_runtime_data();
-    let (runtimes, nonfatal_errors) = platform
+    let (runtimes, nonfatal_runtime_errors) = platform
         .find_available_runtimes(Box::new(iter::empty()))
         .unwrap();
+    let (api_layers, nonfatal_api_layer_errors) = platform
+        .find_available_api_layers(Box::new(iter::empty()))
+        .unwrap();
+
     println!("\nRuntimes:");
     for runtime in runtimes {
         println!(
@@ -21,16 +26,39 @@ fn main() {
         );
     }
 
-    if !nonfatal_errors.is_empty() {
-        println!("\nNon-fatal errors:");
-        for e in nonfatal_errors {
+    println!("\nApi Layers:");
+    for layer in api_layers {
+        println!(
+            "- {}: {:?} - {:?}",
+            layer.get_layer_name(),
+            layer
+                .is_active()
+                .unwrap_or(ActiveState::ActiveIndependentRuntime),
+            layer
+        );
+    }
+
+    if !nonfatal_runtime_errors.is_empty() {
+        println!("\nNon-fatal runtime errors:");
+        for e in nonfatal_runtime_errors {
+            println!("- Manifest: {} - Error: {:?}", e.0.display(), e.1);
+        }
+    }
+
+    if !nonfatal_api_layer_errors.is_empty() {
+        println!("\nNon-fatal api layer errors:");
+        for e in nonfatal_api_layer_errors {
             println!("- Manifest: {} - Error: {:?}", e.0.display(), e.1);
         }
     }
 
     println!("\nActive runtime manifest path(s):");
-
     for path in platform.get_active_runtime_manifests() {
+        println!("- {}", path.display());
+    }
+
+    println!("\nActive api layer manifest path(s):");
+    for path in platform.get_active_api_layer_manifests() {
         println!("- {}", path.display());
     }
 }

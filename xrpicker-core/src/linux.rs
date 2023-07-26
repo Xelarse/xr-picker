@@ -13,10 +13,10 @@ use crate::{
 };
 use itertools::Itertools;
 use std::ffi::OsStr;
-use std::io::ErrorKind;
+use std::result::Iter;
 use std::{
     collections::HashSet,
-    fs,
+    fs, iter,
     iter::once,
     os::unix::{self, prelude::OsStrExt},
     path::{Path, PathBuf},
@@ -148,10 +148,6 @@ impl LinuxApiLayer {
 
 impl PlatformApiLayer for LinuxApiLayer {
     fn toggle_layer(&mut self) -> Result<(), Error> {
-        fn convert_err(e: BaseDirectoriesError) -> Error {
-            Error::SetActiveError(e.to_string())
-        }
-
         // First get the original path of the current Api layer and flip the target path between disabled / enabled.
         let mut new_path = self.orig_path.clone();
         if let Some(extension) = new_path.extension() {
@@ -237,12 +233,17 @@ impl PlatformApiLayer for LinuxApiLayer {
 
 pub struct LinuxPlatform {
     path_suffix: PathBuf,
+    api_layer_suffixes: Vec<PathBuf>,
 }
 
 impl LinuxPlatform {
     fn new() -> Self {
         let path_suffix = make_path_suffix();
-        Self { path_suffix }
+        let api_layer_suffixes = make_api_layer_suffixes(&path_suffix);
+        Self {
+            path_suffix,
+            api_layer_suffixes,
+        }
     }
 }
 
@@ -409,18 +410,21 @@ impl Platform for LinuxPlatform {
         extra_paths: Box<dyn '_ + Iterator<Item = PathBuf>>,
     ) -> Result<(Vec<Self::PlatformApiLayerType>, Vec<ManifestError>), Error> {
         let mut known_manifests: HashSet<PathBuf> = HashSet::default();
+        let mut manifest_files = iter::empty::<PathBuf>();
 
-        let manifest_files = find_potential_api_layer_manifests_xdg(&self.path_suffix)
-            .chain(find_potential_api_layer_manifests_sysconfdir(
-                &self.path_suffix,
-            ))
-            .chain(extra_paths)
-            .filter_map(|p| p.canonicalize().ok().map(|canonical| (p, canonical)));
+        for suffix in make_api_layer_suffixes(&self.path_suffix).iter() {
+            manifest_files = manifest_files
+                .chain(find_potential_api_layer_manifests_xdg(suffix))
+                .chain(find_potential_api_layer_manifests_sysconfdir(suffix));
+        }
+        manifest_files.chain(extra_paths.collect_vec());
+        let remapped_files =
+            manifest_files.filter_map(|p| p.canonicalize().ok().map(|canonical| (p, canonical)));
 
         let mut layers = vec![];
         let mut nonfatal_errors = vec![];
 
-        for (orig_path, canonical) in manifest_files {
+        for (orig_path, canonical) in remapped_files {
             if known_manifests.contains(&orig_path) {
                 continue;
             }
@@ -454,7 +458,7 @@ impl Platform for LinuxPlatform {
     }
 
     fn get_active_api_layer_manifests(&self) -> Vec<PathBuf> {
-        possible_active_runtimes()
+        possible_active_api_layers()
             .filter(|p| p.extension().unwrap_or(OsStr::new("disabled")) != "disabled")
             .collect_vec()
     }
