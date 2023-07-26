@@ -13,10 +13,9 @@ use crate::{
 };
 use itertools::Itertools;
 use std::ffi::OsStr;
-use std::result::Iter;
 use std::{
     collections::HashSet,
-    fs, iter,
+    fs,
     iter::once,
     os::unix::{self, prelude::OsStrExt},
     path::{Path, PathBuf},
@@ -35,9 +34,17 @@ fn make_sysconfdir(suffix: &Path) -> PathBuf {
 
 fn make_api_layer_suffixes(suffix: &Path) -> Vec<PathBuf> {
     Vec::from([
-        suffix.join("/api_layers/explicit.d"),
-        suffix.join("/api_layers/implicit.d"),
+        make_api_layer_suffix_implicit(suffix),
+        make_api_layer_suffix_explicit(suffix),
     ])
+}
+
+fn make_api_layer_suffix_implicit(suffix: &Path) -> PathBuf {
+    suffix.join("/api_layers/implicit.d")
+}
+
+fn make_api_layer_suffix_explicit(suffix: &Path) -> PathBuf {
+    suffix.join("/api_layers/explicit.d")
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -410,21 +417,19 @@ impl Platform for LinuxPlatform {
         extra_paths: Box<dyn '_ + Iterator<Item = PathBuf>>,
     ) -> Result<(Vec<Self::PlatformApiLayerType>, Vec<ManifestError>), Error> {
         let mut known_manifests: HashSet<PathBuf> = HashSet::default();
-        let mut manifest_files = iter::empty::<PathBuf>();
+        let implicit_suffix = make_api_layer_suffix_implicit(&self.path_suffix);
 
-        for suffix in make_api_layer_suffixes(&self.path_suffix).iter() {
-            manifest_files = manifest_files
-                .chain(find_potential_api_layer_manifests_xdg(suffix))
-                .chain(find_potential_api_layer_manifests_sysconfdir(suffix));
-        }
-        manifest_files.chain(extra_paths.collect_vec());
-        let remapped_files =
-            manifest_files.filter_map(|p| p.canonicalize().ok().map(|canonical| (p, canonical)));
+        let manifest_files = find_potential_api_layer_manifests_xdg(&implicit_suffix)
+            .chain(find_potential_api_layer_manifests_sysconfdir(
+                &implicit_suffix,
+            ))
+            .chain(extra_paths)
+            .filter_map(|p| p.canonicalize().ok().map(|canonical| (p, canonical)));
 
         let mut layers = vec![];
         let mut nonfatal_errors = vec![];
 
-        for (orig_path, canonical) in remapped_files {
+        for (orig_path, canonical) in manifest_files {
             if known_manifests.contains(&orig_path) {
                 continue;
             }

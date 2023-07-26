@@ -124,7 +124,7 @@ trait EguiAppState<T: Platform> {
     /// Adds a grid with the api-layers to the given `egui::Ui`, handling toggling the layers on / off and reordering.
     ///
     /// Returns an error (in which case that becomes the new state), or a boolean indicating whether to refresh.
-    fn add_api_layer_grid(&self, platform: &T, ui: &mut egui::Ui) -> Result<bool, Error>;
+    fn add_api_layer_grid(&mut self, platform: &T, ui: &mut egui::Ui) -> Result<bool, Error>;
 }
 
 impl<T: Platform> EguiAppState<T> for AppState<T> {
@@ -186,7 +186,7 @@ impl<T: Platform> EguiAppState<T> for AppState<T> {
             .inner
     }
 
-    fn add_api_layer_grid(&self, platform: &T, ui: &mut egui::Ui) -> Result<bool, Error> {
+    fn add_api_layer_grid(&mut self, platform: &T, ui: &mut egui::Ui) -> Result<bool, Error> {
         // The closure this calls returns true if we should refresh the list
         egui::containers::ScrollArea::horizontal()
             .show(ui, |ui| {
@@ -204,14 +204,13 @@ impl<T: Platform> EguiAppState<T> for AppState<T> {
                         ui.label(egui::RichText::new("Details").size(TABLE_HEADER_TEXT_SIZE));
                         ui.end_row();
 
-                        for layer in &self.api_layers {
-                            let layer_active_state = platform
-                                .get_api_layer_active_state(layer, &self.active_api_layer_data);
+                        for layer in &mut self.api_layers {
+                            let layer_active_state = layer.is_active()?;
                             let mut active = false;
                             let check = ui.checkbox(&mut active, "");
 
                             if check.changed() {
-                                if let Err(e) = layer.make_active() {
+                                if let Err(e) = layer.toggle_layer() {
                                     eprintln!("error in make_active: {:?}", e);
                                     return Err(e);
                                 }
