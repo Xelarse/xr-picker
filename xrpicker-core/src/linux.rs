@@ -32,13 +32,6 @@ fn make_sysconfdir(suffix: &Path) -> PathBuf {
     Path::new(ETC).join(suffix)
 }
 
-fn make_api_layer_suffixes(suffix: &Path) -> Vec<PathBuf> {
-    Vec::from([
-        make_api_layer_suffix_implicit(suffix),
-        make_api_layer_suffix_explicit(suffix),
-    ])
-}
-
 fn make_api_layer_suffix_implicit(suffix: &Path) -> PathBuf {
     suffix.join("/api_layers/implicit.d")
 }
@@ -240,16 +233,19 @@ impl PlatformApiLayer for LinuxApiLayer {
 
 pub struct LinuxPlatform {
     path_suffix: PathBuf,
-    api_layer_suffixes: Vec<PathBuf>,
+    implicit_layer_suffix: PathBuf,
+    explicit_layer_suffix: PathBuf,
 }
 
 impl LinuxPlatform {
     fn new() -> Self {
         let path_suffix = make_path_suffix();
-        let api_layer_suffixes = make_api_layer_suffixes(&path_suffix);
+        let implicit_layer_suffix = make_api_layer_suffix_implicit(&path_suffix);
+        let explicit_layer_suffix = make_api_layer_suffix_explicit(&path_suffix);
         Self {
             path_suffix,
-            api_layer_suffixes,
+            implicit_layer_suffix,
+            explicit_layer_suffix,
         }
     }
 }
@@ -345,20 +341,41 @@ fn possible_active_runtimes() -> impl Iterator<Item = PathBuf> {
 }
 
 fn possible_active_api_layers() -> impl Iterator<Item = PathBuf> {
-    let suffixes = make_api_layer_suffixes(&make_path_suffix())
-        .iter_mut()
-        .map(|p| p.join("*.json"))
-        .collect_vec();
-    let mut out_paths: Vec<PathBuf> = Vec::new();
+    // let suffixes = make_api_layer_suffixes(&make_path_suffix())
+    //     .iter_mut()
+    //     .map(|p| p.join("*.json"))
+    //     .collect_vec();
+    // let mut out_paths: Vec<PathBuf> = Vec::new();
+    //
+    // for suffix in suffixes {
+    //     let xgd = find_potential_api_layer_manifests_xdg(suffix.as_path());
+    //     let etc = find_potential_api_layer_manifests_sysconfdir(suffix.as_path());
+    //
+    //     out_paths.append(&mut xgd.chain(etc).collect_vec());
+    // }
+    // out_paths.into_iter()
 
-    for suffix in suffixes {
-        let xgd = find_potential_api_layer_manifests_xdg(suffix.as_path());
-        let etc = find_potential_api_layer_manifests_sysconfdir(suffix.as_path());
+    //TODO: update this implementation to also use implicit layers later (Maybe)
 
-        out_paths.append(&mut xgd.chain(etc).collect_vec());
-    }
+    let suffix = make_api_layer_suffix_implicit(&make_path_suffix());
+    let etc_iter = once(make_sysconfdir(&suffix));
+    // Warning: BaseDirectories returns increasing order of importance, which is
+    // opposite of what we want, so we reverse it.
+    let xdg_iter = BaseDirectories::new()
+        .ok()
+        .into_iter()
+        .flat_map(move |d| d.find_config_files(&suffix))
+        .rev();
 
-    out_paths.into_iter()
+    xdg_iter
+        .chain(etc_iter)
+        .filter(|p| {
+            p.metadata()
+                .map(|m| m.is_file() || m.is_symlink())
+                .ok()
+                .unwrap_or_default()
+        })
+        .filter_map(|p| p.canonicalize().ok())
 }
 
 impl Platform for LinuxPlatform {
@@ -417,11 +434,10 @@ impl Platform for LinuxPlatform {
         extra_paths: Box<dyn '_ + Iterator<Item = PathBuf>>,
     ) -> Result<(Vec<Self::PlatformApiLayerType>, Vec<ManifestError>), Error> {
         let mut known_manifests: HashSet<PathBuf> = HashSet::default();
-        let implicit_suffix = make_api_layer_suffix_implicit(&self.path_suffix);
 
-        let manifest_files = find_potential_api_layer_manifests_xdg(&implicit_suffix)
+        let manifest_files = find_potential_api_layer_manifests_xdg(&self.implicit_layer_suffix)
             .chain(find_potential_api_layer_manifests_sysconfdir(
-                &implicit_suffix,
+                &self.implicit_layer_suffix,
             ))
             .chain(extra_paths)
             .filter_map(|p| p.canonicalize().ok().map(|canonical| (p, canonical)));
@@ -430,6 +446,8 @@ impl Platform for LinuxPlatform {
         let mut nonfatal_errors = vec![];
 
         for (orig_path, canonical) in manifest_files {
+            // eprintln!("Manifest file: {}")
+
             if known_manifests.contains(&orig_path) {
                 continue;
             }
